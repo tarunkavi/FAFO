@@ -65,52 +65,6 @@ type StandbyLag struct {
 	ReplayLag  *string `json:"replay_lag"`
 }
 
-// LagStats queries replication lag from both the primary and the replica.
-//
-//   - Primary side : pg_stat_replication  (write / flush / replay WAL lag per standby)
-//   - Replica side : now() - pg_last_xact_replay_timestamp()  (wall-clock seconds behind)
-func (d *DB) LagStats() (*LagStats, error) {
-	stats := &LagStats{}
-
-	// 1. WAL lag from primary
-	rows, err := d.primary.Query(`
-		SELECT
-			coalesce(client_addr::text, 'unknown'),
-			state,
-			write_lag::text,
-			flush_lag::text,
-			replay_lag::text
-		FROM pg_stat_replication`)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	for rows.Next() {
-		var s StandbyLag
-		if err := rows.Scan(&s.ClientAddr, &s.State, &s.WriteLag, &s.FlushLag, &s.ReplayLag); err != nil {
-			return nil, err
-		}
-		stats.Standbys = append(stats.Standbys, s)
-	}
-
-	// 2. Wall-clock replay lag from replica
-	// pg_last_xact_replay_timestamp() returns NULL when no transaction has been
-	// replayed yet (e.g. replica just started), so we handle that gracefully.
-	var lagSec sql.NullFloat64
-	err = d.replica.QueryRow(`
-		SELECT EXTRACT(EPOCH FROM (now() - pg_last_xact_replay_timestamp()))
-	`).Scan(&lagSec)
-	if err != nil {
-		return nil, err
-	}
-	if lagSec.Valid {
-		v := lagSec.Float64
-		stats.ReplicaReplayLagSec = &v
-	}
-
-	return stats, nil
-}
-
 type Record struct {
 	ID      int    `json:"id"`
 	Label   string `json:"label"`

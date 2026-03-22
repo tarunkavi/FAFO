@@ -3,7 +3,6 @@ package main
 import (
 	"log"
 	"net/http"
-	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -15,30 +14,6 @@ func main() {
 	if err := db.Init(); err != nil {
 		panic("failed to initialise schema: " + err.Error())
 	}
-
-	go func() {
-		ticker := time.NewTicker(5 * time.Second)
-		defer ticker.Stop()
-		for range ticker.C {
-			stats, err := db.LagStats()
-			if err != nil {
-				log.Printf("[LAG] error fetching stats: %v", err)
-				continue
-			}
-			if len(stats.Standbys) == 0 {
-				log.Println("[LAG] no standbys connected to primary yet")
-			}
-			for _, s := range stats.Standbys {
-				log.Printf("[LAG] standby=%s state=%s write=%v flush=%v replay=%v",
-					s.ClientAddr, s.State, nilStr(s.WriteLag), nilStr(s.FlushLag), nilStr(s.ReplayLag))
-			}
-			if stats.ReplicaReplayLagSec != nil {
-				log.Printf("[LAG] replica wall-clock lag = %.3f sec", *stats.ReplicaReplayLagSec)
-			} else {
-				log.Println("[LAG] replica has not replayed any transaction yet")
-			}
-		}
-	}()
 
 	r := gin.Default()
 
@@ -53,8 +28,6 @@ func main() {
 			return
 		}
 
-		// Immediately read back the just-inserted row from the REPLICA.
-		// If replication hasn't propagated yet, found will be false.
 		count := 0
 
 		/*
