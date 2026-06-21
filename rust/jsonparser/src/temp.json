@@ -1,0 +1,26 @@
+{
+  "id": 1,
+  "name": "John Doe",
+  "email": "john.doe@example.com",
+  "age": 30,
+  "isActive": true,
+  "address": {
+    "street": "123 Main St",
+    "city": "New York",
+    "state": "NY",
+    "zip": "10001"
+  },
+  "tags": ["developer", "designer", "tester"],
+  "scores": [95, 87, 76, 92],
+  "metadata": {
+    "createdAt": "2026-01-15T08:30:00Z",
+    "updatedAt": "2026-06-14T12:00:00Z",
+    "version": 3
+  },
+  "preferences": {
+    "theme": "dark",
+    "notifications": true,
+    "language": "en-US"
+  },
+  "notes": null
+}
