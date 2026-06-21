@@ -1,6 +1,5 @@
-use std::io::ErrorKind::Other;
 
-use crate::{JSONValue, lexer::Token::{self, Comma}};
+use crate::{JSONValue, lexer::Token::{self}};
 
 pub struct Parser{
     tokens : Vec<Token>,
@@ -16,10 +15,10 @@ impl Parser{
     }
 
     fn current(&self)->&Token {
-        if(self.pos<self.tokens.len()){
+        if self.pos<self.tokens.len() {
             return &self.tokens[self.pos]
         }else{
-             {panic!("Unexpected end of token stream")}
+             panic!("Unexpected end of token stream")
         }
     }
 
@@ -28,10 +27,10 @@ impl Parser{
     }
 
      fn peek(&self)->&Token {
-        if(self.pos+1<self.tokens.len()){
+        if self.pos+1<self.tokens.len() {
             return &self.tokens[self.pos+1]
         }else{
-             {panic!("Unexpected end of token stream")}
+             panic!("Unexpected end of token stream")
         }
     }
 
@@ -41,7 +40,7 @@ impl Parser{
             self.pos = self.pos +1;
             return output;
         }else{
-             {panic!("Unexpected end of token stream")}
+             panic!("Unexpected end of token stream")
         }
     }
 
@@ -58,7 +57,7 @@ impl Parser{
         loop {
             let key = match self.expect(){
                 Token::StringToken(s) => s.clone(),
-                other => panic!("Expected string key, got something else"),
+                _ => panic!("Expected string key, got something else"),
             };
 
             //consume colon :
@@ -109,7 +108,7 @@ impl Parser{
             }
         }
 
-        return JSONValue::Array((elements))
+        return JSONValue::Array(elements)
     }
 
     fn parse_value(&mut self) -> JSONValue{

@@ -1,0 +1,14 @@
+# Compiled output
+/target
+
+# Backtrace / debug artifacts
+*.pdb
+
+# Editor / OS
+.DS_Store
+*.swp
+.idea/
+.vscode/
+
+# Rust
+# Cargo.lock is committed for binaries (this is a bin crate), so it is NOT ignored.

@@ -1,10 +1,8 @@
 use core::str;
-use std::{fs::File, io::{BufRead, BufReader}};
 
 mod lexer;
 mod parser;
 use lexer::Token;
-use lexer::Lexer;
 use parser::Parser;
 
 enum JSONValue{
@@ -93,7 +91,7 @@ loop{
 
         Some('-') | Some('0'..='9')=>{
             let n = lex.read_number();
-            tokens.push(Token::NumToken((n)));
+            tokens.push(Token::NumToken(n));
         }
         // TODO: handle numbers and the true/false/null literals here.
         // For now, skip any other character so the loop terminates.
