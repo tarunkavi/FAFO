@@ -36,7 +36,7 @@ impl fmt::Display for KvsError {
     }
 }
 //offset + size = position of the entire record.
-//TODO: use CRC in future
+//TODO: use CRC in future test
  struct Value{
     offset_position:u64,
     size:usize,
@@ -166,24 +166,28 @@ impl KvStore {
 
     }
 
-    // pub fn get(&self, key: String) -> io::Result<Option<String>> {
-    //     //get the key from map;
+    pub fn get(&self, key: &str) ->  Result<String,KvsError>{
+        //get the key from map;
 
-    //     let value = self.store.get(&key)?;
-    //     let mut buf = vec![0u8; value.size];
-    //     self.curr_file.read_exact_at(&mut buf,value.offset_position);
-    //     //cannot use 
-        
-    //     let key_len = u64::from_be_bytes(buf[8..16].try_into().unwrap()) as usize;
-    //     let val_len = u64::from_be_bytes(buf[16..24].try_into().unwrap()) as usize;
-
-    //     let val_bytes = &buf[24+key_len..24+key_len+val_len];
-
-    //     let s = String::from_utf8(val_bytes.to_vec()).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+        let value = self.store.get(key).ok_or(KvsError::KeyNotFound)?;
+        let mut buf = vec![0u8; value.size];
+        let reader = self.readers.read().map_err(|_| KvsError::LockPoisoned)?;
+        let file_reader = reader.get(&value.file_id).ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "data file not found for file_id"))?;
 
 
-    //     Ok(Some(s));
-    // }
+        file_reader.read_exact_at(&mut buf,value.offset_position)?;
+        //cannot use 
+        drop(reader);
+        let key_len = u64::from_be_bytes(buf[8..16].try_into().unwrap()) as usize;
+        let val_len = u64::from_be_bytes(buf[16..24].try_into().unwrap()) as usize;
+
+        let val_bytes = &buf[24+key_len..24+key_len+val_len];
+
+        let s = String::from_utf8(val_bytes.to_vec()).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+
+
+        Ok(s)
+    }
 
     // pub fn remove(&mut self, key: String) {
     //    self.store.remove(&key);

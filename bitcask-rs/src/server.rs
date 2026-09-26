@@ -56,6 +56,18 @@ impl Server {
                 }
             }
 
+            if tokens[0] =="get"{
+                match kv.get(tokens[1]){
+                    Ok((value))=>{
+                        let byte = value.as_bytes();
+                        writer.write_all(byte)?;
+                        writer.write_all(b"\n")?;
+                    }
+
+                    Err(err) => writer.write_all(format!("ERR {err}\n").as_bytes())?,
+                }
+            }
+
            
             // println!("{peer}: {}",line.split_whitespace());
 
