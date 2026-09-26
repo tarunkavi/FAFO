@@ -1,39 +1,38 @@
-use clap::{Parser, Subcommand};
-use std::process::exit;
-
-#[derive(Parser)]
-#[command(name = "kvs", version, about = "A key-value store")]
-struct Cli {
-    #[command(subcommand)]
-    command: Command,
-}
-
-#[derive(Subcommand)]
-enum Command {
-    /// Get the value of a key
-    Get { key: String },
-    /// Set the value of a key
-    Set { key: String, value: String },
-    /// Remove a key
-    Rm { key: String },
-}
+use kvs::{kvs::KvStore, server::Server};
 
 fn main() {
-    let cli = Cli::parse();
 
-    match cli.command {
-        Command::Get { .. } => {
-            eprintln!("unimplemented");
-            exit(1);
+    let path = "./data";
+    let mut kv = KvStore::new(path).unwrap();
+
+    let mut Server = Server::new("0.0.0.0:8000", kv);
+
+    
+    match Server {
+        Ok(mut server)=>{
+            server.start();
         }
-        Command::Set { .. } => {
-            print!("this is set");
-            eprintln!("unimplemented");
-            exit(1);
+        Err(err)=>{
+            print!("{}",err)
         }
-        Command::Rm { .. } => {
-            eprintln!("unimplemented");
-            exit(1);
-        }
+        
     }
+
+
+
+
+    // match cli.command {
+    //     Command::Get { .. } => {
+    //         eprintln!("unimplemented");
+    //         exit(1);
+    //     }
+    //     Command::Set { key,value } => {
+    //         kv.set(key, value);
+    //         exit(1);
+    //     }
+    //     Command::Rm { .. } => {
+    //         eprintln!("unimplemented");
+    //         exit(1);
+    //     }
+    // }
 }
