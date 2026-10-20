@@ -21,7 +21,7 @@ impl Server {
         Ok(Server {
             listener:listen,
             kv: Arc::new(kv),
-            thread_pool:ThreadPool::new(10)
+            thread_pool:ThreadPool::new(10)?
         })
     }
 

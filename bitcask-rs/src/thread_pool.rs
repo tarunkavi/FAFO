@@ -1,4 +1,4 @@
-use std::{sync::{Arc, Mutex, mpsc::{self, Receiver, Sender}}, thread};
+use std::{io, panic::{self, AssertUnwindSafe}, sync::{Arc, Mutex, mpsc::{self, Receiver, Sender}}, thread};
 
 
 
@@ -16,7 +16,7 @@ type Job = Box<dyn FnOnce() + Send + 'static>;
 
 
 impl ThreadPool {
-    pub fn new(size: usize) -> ThreadPool {
+    pub fn new(size: usize) -> io::Result<ThreadPool> {
         assert!(size>0);
         let mut worker = Vec::with_capacity(size);
         
@@ -30,10 +30,10 @@ impl ThreadPool {
         let receiver_send = Arc::new(Mutex::new(receiver));
 
         for i in 0..size {
-            let new_worker = Worker::new(i,Arc::clone(&receiver_send));
+            let new_worker = Worker::new(i,Arc::clone(&receiver_send))?;
             worker.push(new_worker);
         }
-        ThreadPool {workers:worker,sender:Some(sender)}
+        Ok(ThreadPool {workers:worker,sender:Some(sender)})
     }
 
     pub fn execute<F>(&self,f:F)where F: FnOnce() + Send + 'static,
@@ -66,20 +66,22 @@ impl Drop for ThreadPool {
 
 pub struct Worker{
 id:usize,
-threads:thread::JoinHandle<()> //thread::spawn() gives JoinHandle() types.
+threads: thread::JoinHandle<()>,
 }
 
 
 impl Worker {
-    fn new(id:usize,receiver: Arc<Mutex<Receiver<Job>>>)->Worker{
+    fn new(id:usize,receiver: Arc<Mutex<Receiver<Job>>>)->io::Result<Worker>{
 
-        let thread = thread::spawn(move||{
+        let thread = thread::Builder::new().name(format!("worker-{id}")).spawn(move||{
 
             loop {
                 let message = receiver.lock().unwrap().recv();
                 match message{
                     Ok(job)=>{
-                        job();
+                        if let Err(_) = panic::catch_unwind(AssertUnwindSafe(job)){
+                            eprintln!("Worker {id}: job panicked, continuing");
+                        }
                     }
 
                     Err(err)=>{
@@ -89,10 +91,10 @@ impl Worker {
                 }
             }
 
-        });
+        })?;
 
         
-        Worker { id, threads: (thread) }
+        Ok(Worker { id, threads: thread })
     }
 }
 
