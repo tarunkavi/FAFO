@@ -1,15 +1,16 @@
 use std::io::{self, BufRead, BufReader, Write};
-use std::net::{TcpListener, TcpStream, UdpSocket};
-
-use clap::builder::Str;
-
+use std::net::{TcpListener, TcpStream};
+use std::sync::Arc;
+use std::thread;
 use crate::kvs::KvStore;
+use crate::thread_pool::ThreadPool;
 
 
-
+//TODO: you might explore are the fork/join model, the single-threaded async I/O model, and the multithreaded async I/O model.
 pub struct Server {
     listener: TcpListener,
-    kv :KvStore
+    kv :Arc<KvStore>,
+    thread_pool:ThreadPool
 }
 
 //this shit is single threaded
@@ -19,22 +20,39 @@ impl Server {
 
         Ok(Server {
             listener:listen,
-            kv: kv,
+            kv: Arc::new(kv),
+            thread_pool:ThreadPool::new(10)
         })
     }
 
     pub fn start(&mut self) -> io::Result<()> {
         println!("Listener at {:?}",self.listener.local_addr()?);
-      let Server { listener, kv } = self;
+      let Server { listener, kv,thread_pool } = self;
 
       for stream in listener.incoming() {
-            Self::handle(kv, stream?)?;
+
+        let stream = match  stream{
+            Ok(s) => s,
+            Err(err)=>{
+            eprintln!("accept failed: {err}");
+            continue; 
+            }
+            
+        };   
+
+        let new_kv:Arc<KvStore>=  Arc::clone(kv);
+            thread_pool.execute(move ||{
+                if let Err(err) = Self::handle(&new_kv, stream){
+                    eprintln!("Connection error :{err}");
+                }
+            });
+
         }
         Ok(())
     }
 
 
-    pub fn handle(kv:&mut KvStore,stream:TcpStream)->io::Result<()>{
+    pub fn handle(kv:&KvStore,stream:TcpStream)->io::Result<()>{
         let peer = stream.peer_addr()?;
 
         let mut reader = BufReader::new(stream.try_clone()?);

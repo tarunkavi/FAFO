@@ -7,7 +7,8 @@ use std::os::unix::fs::FileExt;
 use std::path::{Path, PathBuf};
 use std::str::Bytes;
 use std::sync::{Arc, Mutex, RwLock};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::thread::sleep;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use clap::builder::Str;
 
@@ -37,6 +38,7 @@ impl fmt::Display for KvsError {
 }
 //offset + size = position of the entire record.
 //TODO: use CRC in future test
+#[derive(Clone, Copy)]
  struct Value{
     offset_position:u64,
     size:usize,
@@ -53,7 +55,7 @@ struct ActiveFile{
 
 pub struct KvStore {
      dir_path: String,
-     store: HashMap<String, Value>, // introduce a lock when the server becomes multithreaded.
+     store: RwLock<HashMap<String, Value>>, // introduce a lock when the server becomes multithreaded.
      active: Mutex<ActiveFile>,
      readers: RwLock<HashMap<u64,File>>
 }
@@ -96,14 +98,14 @@ impl KvStore {
         
 
         Ok(KvStore{
-            store:HashMap::new(),
+            store:RwLock::new(HashMap::new()),
             dir_path:path.to_string(),
             active:mutex_active,
             readers:lock_map
         })
     }
 
-    pub fn set(&mut self, key: &str, value: &str)-> Result<(),KvsError>{
+    pub fn set(&self, key: &str, value: &str)-> Result<(),KvsError>{
         //make a log entry
         let mut active = self.active.lock().map_err(|_| KvsError::LockPoisoned)?;
 
@@ -160,8 +162,9 @@ impl KvStore {
                     timestamp:timestamp
         };
         active.pos = active.pos+record.len() as u64; // move cursor to theese many bytes.
-        self.store.insert(key.to_string(), value);//in memory entry
-
+        self.store.write().map_err(|_| KvsError::LockPoisoned)?.insert(key.to_string(),value);
+        // let dur = Duration::new(100 as u64,0);
+        // sleep(dur);
         Ok(())
 
     }
@@ -169,7 +172,7 @@ impl KvStore {
     pub fn get(&self, key: &str) ->  Result<String,KvsError>{
         //get the key from map;
 
-        let value = self.store.get(key).ok_or(KvsError::KeyNotFound)?;
+        let value = *self.store.read().map_err(|_| KvsError::LockPoisoned)?.get(key).ok_or(KvsError::KeyNotFound)?;
         let mut buf = vec![0u8; value.size];
         let reader = self.readers.read().map_err(|_| KvsError::LockPoisoned)?;
         let file_reader = reader.get(&value.file_id).ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "data file not found for file_id"))?;
